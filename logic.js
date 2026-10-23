@@ -13,7 +13,7 @@
   "use strict";
 
   var REASON = { shortage: "검산 부족", specific: "구체적 오류 지적", none: "근거 없음" };
-  var REVIEWER = { same: "같은 AI", other: "다른 AI", human: "사람" };
+  var REVIEWER = { same: "같은 AI", other: "다른 AI", human: "사람", auto: "자동 대조(앱)" };
   var own = Object.prototype.hasOwnProperty;
   function pick(map, key) { return own.call(map, key) ? map[key] : undefined; }
 
@@ -187,7 +187,7 @@
 
   /* 검토자(같은 AI / 다른 AI / 사람)별로 따로 요약. 논문 비교는 '같은 AI' 기록에만 쓴다. */
   function byReviewer(rows) {
-    var groups = { same: [], other: [], human: [] };
+    var groups = { same: [], other: [], human: [], auto: [] };
     (Array.isArray(rows) ? rows : []).forEach(function (r) {
       var k = r && pick(REVIEWER, r.reviewer) ? r.reviewer : "same";
       groups[k].push(r);
@@ -269,7 +269,8 @@
       reasons: s.reasons,
       byReviewer: { same: { used: groups.same.used, balancedAccuracy: groups.same.balanced },
                     other: { used: groups.other.used, balancedAccuracy: groups.other.balanced },
-                    human: { used: groups.human.used, balancedAccuracy: groups.human.balanced } },
+                    human: { used: groups.human.used, balancedAccuracy: groups.human.balanced },
+                    auto: { used: groups.auto.used, balancedAccuracy: groups.auto.balanced } },
       comparisonWithPaper: { basis: "같은 AI가 자기 결과를 다시 평가한 기록만", usableModels: cmp.usableCount, belowMine: cmp.below, aboveMine: cmp.above, same: cmp.same },
       notes: interpret(s).map(function (n) { return n.text; }),
       source: "논문 3.3·3.4절 식, 표 1·2 (공통 12문항, 모델당 1회 실행, 탐색 연구). 근거 유형·검토자 구분은 앱이 추가한 칸."

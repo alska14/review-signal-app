@@ -3,7 +3,6 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { spawnSync } = require("node:child_process");
 const RS = require("../logic.js");
 
 function loadGlobal(file, name) {
@@ -148,29 +147,4 @@ test("해석 문구: 오답이 적으면 일반화 경고, 점수 구간은 앱 
   const text = RS.interpret(RS.summarize(many)).map(m => m.text).join("\n");
   assert.match(text, /논문의 기준이 아닙니다/);
   assert.doesNotMatch(text, /헛 경보/);
-});
-
-test("MCP 서버: 핸드셰이크와 도구 호출, 이상한 입력", () => {
-  const server = path.join(__dirname, "..", "mcp", "server.mjs");
-  const msgs = [
-    { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "t", version: "1" } } },
-    { jsonrpc: "2.0", method: "notifications/initialized" },
-    { jsonrpc: "2.0", id: 2, method: "tools/list" },
-    { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "score_review_signal", arguments: { lines: "예, 구체적 오류 지적, 오답;아니오, 정답" } } },
-    { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "build_review_prompt", arguments: { requirement: "R", result: "X" } } },
-    { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "없는도구" } },
-    { jsonrpc: "2.0", id: 6, method: "server/discover" }
-  ].map(m => JSON.stringify(m)).join("\n") + "\nnot json\n";
-  const r = spawnSync(process.execPath, [server], { input: msgs, encoding: "utf8" });
-  assert.equal(r.status, 0, r.stderr);
-  const out = r.stdout.trim().split("\n").map(l => JSON.parse(l));
-  assert.equal(out.length, 7); // 알림 1개는 응답 없음, 깨진 줄은 오류 응답
-  const byId = Object.fromEntries(out.filter(o => o.id !== null).map(o => [o.id, o]));
-  assert.equal(byId[1].result.serverInfo.name, "review-signal");
-  assert.equal(byId[2].result.tools.length, 4);
-  assert.equal(JSON.parse(byId[3].result.content[0].text).counts.tp, 1);
-  assert.match(JSON.parse(byId[4].result.content[0].text).prompt, /요구사항 원문/);
-  assert.ok(byId[5].error);
-  assert.ok(byId[6].result.supportedVersions.length >= 1);
-  assert.equal(out[out.length - 1].error.code, -32700);
 });

@@ -12,7 +12,7 @@
 - 내려받은 묶음: 새 폴더에 ZIP을 풀고 `index.html` 을 더블클릭하면 브라우저에서 열립니다. 설치·서버·인터넷·API 키가 필요 없습니다.
 
 ## 사용자가 앱에서 하는 일 세 가지
-1. **재검토 시키기** — 요구사항 원문과 AI의 결과·완료 보고를 넣으면 논문 부록 B1을 업무용으로 옮긴 프롬프트가 만들어집니다. 복사해서 새 대화에 붙여 넣고, 결과를 고치게 하지 않은 채 재검토만 시킵니다.
+1. **재검토 시키기** — 요구사항 원문과 AI의 결과·완료 보고를 넣으면 ① `자동 원문 대조`가 LLM 없이 바로 숫자·소수 자릿수·기호·ID·항목 수의 불일치를 찾고(앱이 추가한 기능, 의미 오류는 못 잡음), ② 논문 부록 B1을 업무용으로 옮긴 프롬프트가 만들어집니다. 프롬프트는 복사해서 새 대화에 붙여 넣고, 결과를 고치게 하지 않은 채 재검토만 시킵니다.
 2. **결과 붙여넣고 실제로 맞았는지 기록** — AI가 돌려준 JSON(확신도, 검토 필요 여부, 근거 유형)을 붙여 넣고, 원문과 직접 대조해 각 건의 실제 결과(정답/오답)를 고릅니다. `예시로 채우기`가 가상의 예시 14건을 넣어 줍니다.
 3. **점수와 논문 비교** — 오답 검토율, 정답 검토율, 균형정확도(흔들릴 수 있는 범위 포함), Brier 점수를 계산하고, 같은 AI가 자기 결과를 다시 평가한 기록이면 논문의 모델 11종 사이에 내 점수를 놓아 보여 줍니다.
 
@@ -27,24 +27,28 @@
 
 **앱이 추가한 것(논문에 없음)**: 근거 유형(검산 부족/구체적 오류 지적), 재검토한 쪽 구분(같은 AI/다른 AI/사람), 확신도 20 이하 표시, 흔들림 범위(윌슨 구간), 점수 구간 해석(90%·70%). 논문은 같은 모델의 자기 평가만 다뤘으므로, 논문 비교 막대는 '같은 AI' 기록에만 씁니다.
 
+## 비전공자용 연결 안내서
+복붙 없이 쓰는 방법(MCP·내 컴퓨터 API)을 단계별로 적은 `guide.html` 이 있습니다(앱 첫 화면에서도 링크). 호스팅 API 키(이메일 확인 뒤 발급)는 아직 만들지 않았고, 아래 방법은 모두 키가 필요 없습니다.
+
 ## LLM·프로그램에서 쓰기
-같은 계산을 세 가지 길로 쓸 수 있습니다. 모두 입력을 밖으로 보내지 않습니다.
+같은 계산을 네 가지 길로 쓸 수 있습니다. 모두 입력을 밖으로 보내지 않습니다.
 1. **주소로 불러오기**: `https://alska14.github.io/review-signal-app/?lines=예,구체적 오류 지적,오답;아니오,정답` 처럼 열면 줄이 채워지고, 화면의 "기계가 읽는 결과(JSON)" 칸(`#result-json`)에 결과가 나옵니다. 브라우저를 쓰는 AI 에이전트는 이 칸이나 화면 글을 읽으면 됩니다.
-2. **MCP 서버**(`mcp/server.mjs`, Node 18+, 설치할 패키지 없음): 도구 4개 — `build_review_prompt`, `parse_review_json`, `score_review_signal`, `paper_models`. 등록 예시:
+2. **MCP 서버**(`mcp/server.mjs`, Node 18+, 설치할 패키지 없음): 도구 6개 — `verify_completion`(원문 대조+재검토 프롬프트+다음 단계를 한 번에), `check_against_source`, `build_review_prompt`, `parse_review_json`, `score_review_signal`, `paper_models`, 그리고 프롬프트 `verify-completion`. 등록 예시:
    - Claude Code: `claude mcp add --transport stdio review-signal -- node 폴더경로/mcp/server.mjs`
    - Claude Desktop `claude_desktop_config.json`: `{"mcpServers": {"review-signal": {"command": "node", "args": ["폴더경로/mcp/server.mjs"]}}}`
    - Codex `~/.codex/config.toml`: `[mcp_servers.review-signal]` 아래 `command = "node"`, `args = ["폴더경로/mcp/server.mjs"]`
    - 시험한 것: 직접 만든 JSON-RPC 호출(initialize, tools/list, tools/call)이 맞게 응답함. `server/discover`(2026-07-28 프로토콜)는 자료를 보고 넣었지만 실제 클라이언트로는 시험하지 못했습니다.
-3. **WebMCP**: 브라우저가 지원하면(W3C 커뮤니티 그룹 제안, Chrome 149 이후 Origin Trial) 페이지가 `score_review_signal` 도구를 에이전트에게 알립니다. 지원하지 않으면 아무 일도 하지 않습니다. 실제 브라우저에서는 시험하지 못했습니다.
+3. **내 컴퓨터 API**: `node mcp/server.mjs --http 8787` 로 켜면 `POST /api/verify`, `/api/check`, `/api/prompt`, `/api/parse`, `/api/score`, `GET /api/models`, `GET /health` 가 이 컴퓨터(127.0.0.1)에서만 열립니다. 인터넷에 공개하는 서비스가 아닙니다.
+4. **WebMCP**: 브라우저가 지원하면(W3C 커뮤니티 그룹 제안, Chrome 149 이후 Origin Trial) 페이지가 `score_review_signal` 도구를 에이전트에게 알립니다. 지원하지 않으면 아무 일도 하지 않습니다. 실제 브라우저에서는 시험하지 못했습니다.
 
 또한 페이지 안에서 `window.reviewSignalScore({lines: "예, 검산 부족, 오답"})` 으로 같은 결과 JSON을 받을 수 있습니다. `llms.txt`는 설명만 담은 보조 파일입니다.
 
 ## 검사
 Node.js 18 이상이 있으면(없어도 앱은 열립니다):
 ```
-node --test tests/logic.test.js
+node --test tests/logic.test.js tests/check.test.js tests/mcp.test.js
 ```
-논문의 균형정확도 숫자, 계산 불가 처리, 잘못된 입력, JSON 읽기, 프롬프트, MCP 서버 응답까지 15개 시험입니다.
+25개 시험: 논문의 균형정확도 숫자, 계산 불가 처리, 잘못된 입력, JSON 읽기, 프롬프트, 자동 원문 대조(임시 테스트용 가상 데이터 `tests/fixtures.json`: 심은 오류 9개 중 9개 검출, 정상 사례 5건 중 오탐 0건 — 같은 작성자가 만든 사례라서 실제 업무 자료에서는 달라질 수 있고, 의미를 바꾼 오류는 못 잡는다는 한계 사례도 포함), MCP·HTTP 응답.
 
 ## 데이터와 비밀값
 - 앱에 들어 있는 데이터는 논문의 집계 숫자와 가상 예시뿐입니다. 실제 개인정보나 고객 자료는 없습니다.

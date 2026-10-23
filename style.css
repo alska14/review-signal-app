@@ -94,3 +94,10 @@ button.small { min-height: 44px; }
 .why { margin: 12px 0 0; color: var(--muted); font-size: .92rem; border-left: 3px solid var(--line); padding-left: 10px; }
 pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; font-size: .85rem; max-height: 360px; }
 textarea[readonly] { background: var(--infobg); }
+.notes li .sub { margin-top: 4px; font-size: .85rem; color: var(--muted); word-break: break-word; }
+.notes-ok { padding: 8px 12px; border-radius: 8px; border-left: 4px solid var(--ok); background: var(--okbg); }
+a { color: var(--accent); }
+.guide h2 { margin-top: 28px; }
+.guide ol, .guide ul { padding-left: 22px; }
+.guide pre { white-space: pre-wrap; word-break: break-word; }
+.guide table { margin: 8px 0; }

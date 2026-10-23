@@ -73,7 +73,7 @@
       tr.appendChild(td4);
 
       var td6 = el("td", { "data-label": "재검토한 쪽" });
-      td6.appendChild(select([["same", "같은 AI"], ["other", "다른 AI"], ["human", "사람"]], row.reviewer, n + "번 재검토한 쪽", function (v) {
+      td6.appendChild(select([["same", "같은 AI"], ["other", "다른 AI"], ["human", "사람"], ["auto", "자동 대조(앱)"]], row.reviewer, n + "번 재검토한 쪽", function (v) {
         row.reviewer = v; update(false);
       }, false, i + ":rev"));
       tr.appendChild(td6);
@@ -120,7 +120,7 @@
     box.appendChild(m);
 
     var g = RS.byReviewer(rows);
-    var usedGroups = ["same", "other", "human"].filter(function (k) { return g[k].used > 0; });
+    var usedGroups = ["same", "other", "human", "auto"].filter(function (k) { return g[k].used > 0; });
     if (usedGroups.length > 1) {
       var p = el("p", { class: "help" });
       p.textContent = "재검토한 쪽별 균형정확도: " + usedGroups.map(function (k) { return RS.REVIEWER[k] + " " + g[k].used + "건 " + RS.pct(g[k].balanced); }).join(" / ") + ". 논문 비교는 '같은 AI' 기록에만 씁니다.";
@@ -270,6 +270,35 @@
       var finish = function (ok) { $("copy-msg").textContent = ok ? "복사했습니다." : "자동 복사가 막혔습니다. 칸을 눌러 전체 선택 후 복사하세요."; };
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(function () { finish(true); }, function () { finish(done); });
       else finish(done);
+    });
+    var lastAuto = null;
+    $("btn-autocheck").addEventListener("click", function () {
+      var box = $("autocheck-out");
+      box.textContent = "";
+      var r = window.SourceCheck.check($("req-text").value, $("res-text").value);
+      lastAuto = r.ok ? r : null;
+      $("btn-autoadd").disabled = !r.ok;
+      if (!r.ok) { box.appendChild(el("p", { class: "problems" }, r.error)); return; }
+      var sg = window.SourceCheck.autoSignal(r);
+      box.appendChild(el("p", { class: "help" }, "원문 숫자 " + r.stats.sourceNumbers + "개 중 " + r.stats.preservedNumbers + "개가 결과에 그대로 있습니다. 자동 신호: " + (sg.needs_review ? "검토 필요(" + (sg.reason_type === "specific" ? "구체적 오류 지적" : "검산 부족") + ")" : "검토 불필요") + ", 확신도 " + sg.confidence + "(사람이 확인하기 전의 초기값)."));
+      if (!r.findings.length) box.appendChild(el("p", { class: "notes-ok" }, "글자·숫자 수준에서는 불일치를 찾지 못했습니다. 의미와 계산은 아직 확인되지 않았습니다."));
+      var ul = el("ul", { class: "notes" });
+      r.findings.forEach(function (f) {
+        var li = el("li", { class: f.severity === "high" ? "bad" : (f.severity === "mid" ? "mid" : "info") });
+        li.appendChild(el("b", null, f.type + " "));
+        li.appendChild(document.createTextNode(f.message));
+        if (f.source || f.output) li.appendChild(el("div", { class: "sub" }, (f.source ? "원문: " + f.source : "") + (f.source && f.output ? "  →  " : "") + (f.output ? "결과: " + f.output : "")));
+        ul.appendChild(li);
+      });
+      box.appendChild(ul);
+      box.appendChild(el("p", { class: "help" }, r.limits));
+    });
+    $("btn-autoadd").addEventListener("click", function () {
+      if (!lastAuto) return;
+      var sg = window.SourceCheck.autoSignal(lastAuto);
+      rows = rows.filter(function (r) { return !isBlank(r); }).concat([{ memo: "자동 원문 대조", requested: sg.needs_review ? "yes" : "no", reason: sg.needs_review ? sg.reason_type : "", actual: "", confidence: sg.confidence, reviewer: "auto" }]);
+      update(true);
+      $("btn-autoadd").disabled = true;
     });
     $("btn-addjson").addEventListener("click", function () {
       var p = RS.parseAiJson($("ai-json").value, $("reviewer-new").value);
