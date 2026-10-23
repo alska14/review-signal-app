@@ -3,8 +3,8 @@ window.TEST_RESULTS = {
  "date": "2026-10-23",
  "note": "시험 사례 14건은 앱 작성자가 만든 가상 데이터(실제 업무 자료 아님)이고 정답 라벨도 작성자가 붙였다.",
  "suite": {
-  "total": 35,
-  "pass": 35,
+  "total": 38,
+  "pass": 38,
   "fail": 0
  },
  "reviewer": "서로 독립된 AI 에이전트 14개(사례마다 새 컨텍스트, 같은 모델 계열)에게 앱이 만든 재검토 프롬프트를 그대로 주고, 돌려받은 JSON을 앱의 읽기 기능으로 읽어 점수를 계산함",
@@ -79,6 +79,7 @@ window.TEST_RESULTS = {
    },
    "auto": {
     "needs_review": false,
+    "inconclusive": false,
     "confidence": null
    }
   },
@@ -94,6 +95,7 @@ window.TEST_RESULTS = {
    },
    "auto": {
     "needs_review": true,
+    "inconclusive": false,
     "confidence": null
    }
   },
@@ -109,6 +111,7 @@ window.TEST_RESULTS = {
    },
    "auto": {
     "needs_review": true,
+    "inconclusive": false,
     "confidence": null
    }
   },
@@ -124,6 +127,7 @@ window.TEST_RESULTS = {
    },
    "auto": {
     "needs_review": true,
+    "inconclusive": false,
     "confidence": null
    }
   },
@@ -139,6 +143,7 @@ window.TEST_RESULTS = {
    },
    "auto": {
     "needs_review": true,
+    "inconclusive": false,
     "confidence": null
    }
   },
@@ -154,6 +159,7 @@ window.TEST_RESULTS = {
    },
    "auto": {
     "needs_review": true,
+    "inconclusive": false,
     "confidence": null
    }
   },
@@ -169,6 +175,7 @@ window.TEST_RESULTS = {
    },
    "auto": {
     "needs_review": true,
+    "inconclusive": false,
     "confidence": null
    }
   },
@@ -184,6 +191,7 @@ window.TEST_RESULTS = {
    },
    "auto": {
     "needs_review": true,
+    "inconclusive": false,
     "confidence": null
    }
   },
@@ -199,6 +207,7 @@ window.TEST_RESULTS = {
    },
    "auto": {
     "needs_review": false,
+    "inconclusive": false,
     "confidence": null
    }
   },
@@ -214,6 +223,7 @@ window.TEST_RESULTS = {
    },
    "auto": {
     "needs_review": false,
+    "inconclusive": false,
     "confidence": null
    }
   },
@@ -229,6 +239,7 @@ window.TEST_RESULTS = {
    },
    "auto": {
     "needs_review": false,
+    "inconclusive": false,
     "confidence": null
    }
   },
@@ -244,6 +255,7 @@ window.TEST_RESULTS = {
    },
    "auto": {
     "needs_review": false,
+    "inconclusive": false,
     "confidence": null
    }
   },
@@ -259,6 +271,7 @@ window.TEST_RESULTS = {
    },
    "auto": {
     "needs_review": false,
+    "inconclusive": true,
     "confidence": null
    }
   },
@@ -274,6 +287,7 @@ window.TEST_RESULTS = {
    },
    "auto": {
     "needs_review": false,
+    "inconclusive": false,
     "confidence": null
    }
   }

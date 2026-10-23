@@ -157,3 +157,10 @@ test("대표 점수에는 자동 대조(앱) 기록이 들어가지 않는다", 
   assert.equal(j.byReviewer.auto.used, 2);
   assert.equal(j.balancedAccuracy, 1);
 });
+
+test("줄 붙여넣기는 5,000줄까지만 읽고 알려 준다", () => {
+  const many = Array.from({ length: 5200 }, () => "예, 검산 부족, 오답").join(String.fromCharCode(10));
+  const p = RS.parseLines(many);
+  assert.equal(p.rows.length, 5000);
+  assert.ok(p.problems.some(x => /5,000줄까지만/.test(x.why)));
+});

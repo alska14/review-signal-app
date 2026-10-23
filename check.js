@@ -107,13 +107,19 @@
     var sevNum = opt.strictNumbers ? "high" : "high";
     var outNormList = on.map(function (n) { return n.norm; });
 
-    var outDigits = out.replace(/[^0-9]/g, "");
+    /* 전화번호처럼 숫자 묶음이 하이픈·공백으로만 이어진 것은, 이어 붙인 숫자열이 결과에 같은 방식으로 있으면 서식 차이로 본다.
+       (결과에 우연히 비슷한 숫자열이 들어 있다고 보존으로 치지 않도록 원문의 묶음만 대상으로 한다) */
+    var outCompact = out.replace(/(\d)[- ](?=\d)/g, "$1");
+    var fmtRanges = [], gm, GRP = /\d+(?:[- ]\d+)+/g;
+    while ((gm = GRP.exec(src)) !== null) {
+      var seq = gm[0].replace(/[- ]/g, "");
+      if (seq.length >= 6 && outCompact.indexOf(seq) >= 0) fmtRanges.push([gm.index, gm.index + gm[0].length]);
+    }
     sn.forEach(function (n) {
       var key = n.norm;
+      for (var fr = 0; fr < fmtRanges.length; fr++) if (n.index >= fmtRanges[fr][0] && n.index < fmtRanges[fr][1]) { preserved++; return; }
       var avail = (outCount[key] || 0) - (used[key] || 0);
       if (avail > 0) { used[key] = (used[key] || 0) + 1; preserved++; return; }
-      /* 전화번호처럼 하이픈·공백만 달라진 경우: 숫자열이 결과의 숫자 흐름 안에 그대로 있으면 서식 차이로 본다 */
-      if (!/[.]/.test(key) && key.replace(/\D/g, "").length >= 3 && outDigits.indexOf(key.replace(/\D/g, "")) >= 0 && n.raw.replace(/\D/g, "") === key.replace(/\D/g, "")) { preserved++; return; }
       /* 정확히 같은 값이 없을 때: 자릿수 손실/반올림/완전 누락 구분 */
       var trunc = null, rounded = null;
       for (var i = 0; i < on.length; i++) {
@@ -199,7 +205,8 @@
       ok: true,
       findings: findings,
       stats: { sourceNumbers: sn.length, preservedNumbers: preserved, coverage: sn.length ? preserved / sn.length : null,
-               sourceIds: sids.length, sourceItems: si, resultItems: oi, high: seriousCount },
+               sourceIds: sids.length, sourceItems: si, resultItems: oi, high: seriousCount,
+               checkable: sn.length + sids.length + SYMBOLS.filter(function (y) { return countSymbol(src, y) > 0; }).length + (si >= 3 ? 1 : 0) + (sLines >= 8 ? 1 : 0) },
       limits: "글자·숫자·기호·ID·항목 수 수준의 대조입니다. 의미, 계산의 옳음, 요구사항 이해는 확인하지 못하며 '찾지 못함'이 '문제 없음'은 아닙니다."
     };
   }
@@ -208,6 +215,7 @@
    * 사람이 확인하기 전의 신호이며 AI의 재검토가 아니다. */
   function autoSignal(result) {
     if (!result || !result.ok) return { needs_review: true, reason_type: "shortage", confidence: null };
+    if (result.stats.checkable === 0 && result.findings.length === 0) return { needs_review: null, inconclusive: true, reason_type: "none", confidence: null };
     var high = result.stats.high || 0;
     var mid = result.findings.filter(function (f) { return f.severity === "mid"; }).length;
     if (high > 0) return { needs_review: true, reason_type: "specific", confidence: null };

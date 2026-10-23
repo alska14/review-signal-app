@@ -32,7 +32,10 @@
       btn.tabIndex = on ? 0 : -1;
     });
     try { history.replaceState(null, "", "#" + name); } catch (e) { /* 파일로 열었을 때 등: 무시 */ }
-    if (focus) $("t-" + name).focus();
+    document.body.setAttribute("data-tab", name);
+    try { $("t-" + name).scrollIntoView({ inline: "center", block: "nearest" }); } catch (e) { /* 오래된 브라우저 */ }
+    if (focus === true) $("t-" + name).focus();
+    else if (focus === "panel") { var h = $("tab-" + name).querySelector("h2"); if (h) { h.setAttribute("tabindex", "-1"); h.focus(); } }
     window.scrollTo(0, 0);
   }
   function initTabs() {
@@ -48,7 +51,7 @@
       });
     });
     Array.prototype.forEach.call(document.querySelectorAll("[data-go]"), function (b) {
-      b.addEventListener("click", function () { showTab(b.getAttribute("data-go")); });
+      b.addEventListener("click", function () { showTab(b.getAttribute("data-go"), "panel"); });
     });
     window.addEventListener("hashchange", function () { showTab(location.hash.replace("#", "")); });
     showTab(location.hash.replace("#", "") || "check");
@@ -141,12 +144,12 @@
     var head = RS.headline(rows);
     var s = RS.summarize(head);
     var grid = el("div", { class: "stats" });
-    var big = stat("균형정확도", RS.pct(s.balanced), s.balanced === null ? "(오답 검토율 + 1 − 정답 검토율) / 2" : "흔들릴 수 있는 범위 약 " + RS.range(s.balancedCI));
+    var big = stat("균형정확도", RS.pct(s.balanced), s.balanced === null ? "오답을 잡은 비율과 정답을 건드리지 않은 비율의 평균" : "흔들릴 수 있는 범위 약 " + RS.range(s.balancedCI));
     big.classList.add("main");
     grid.appendChild(big);
     grid.appendChild(stat("오답 검토율", RS.pct(s.errReview), "실제 오답 " + s.wrongN + "건 중 검토 요청 " + s.tp + "건"));
     grid.appendChild(stat("정답 검토율", RS.pct(s.rightReview), "실제 정답 " + s.rightN + "건 중 검토 요청 " + s.fp + "건"));
-    grid.appendChild(stat("Brier 점수", s.brier === null ? "확신도 없음" : s.brier.toFixed(3), s.brier === null ? "확신도를 적으면 계산됩니다" : "확신도를 적은 " + s.brierN + "건, 낮을수록 좋음"));
+    grid.appendChild(stat("Brier 점수", s.brier === null ? "확신도 없음" : s.brier.toFixed(3), s.brier === null ? "확신도를 적으면 계산됩니다" : "확신도가 얼마나 정확했나(낮을수록 좋음), " + s.brierN + "건 기준"));
     box.appendChild(grid);
     var autoN = rows.length - head.length;
     if (autoN > 0) box.appendChild(el("p", { class: "help" }, "'자동 대조(앱)' 기록 " + autoN + "건은 AI의 재검토가 아니라서 위 대표 점수에 넣지 않았습니다."));
@@ -250,7 +253,7 @@
     grid.appendChild(stat("AI 재검토 읽기", R.parsedOk + "/" + R.counts.total, "독립 AI 에이전트가 돌려준 JSON을 앱이 문제없이 읽음"));
     var m1 = stat("AI 재검토 균형정확도", RS.pct(R.llm.balanced), "오류 " + R.counts.wrong + "건 중 " + R.llm.tp + "건, 정상 " + R.counts.correct + "건 중 " + R.llm.fp + "건에 검토 요청");
     m1.classList.add("main"); grid.appendChild(m1);
-    grid.appendChild(stat("자동 원문 대조 균형정확도", RS.pct(R.auto.balanced), "같은 14건 기준(규칙을 만든 사람이 만든 사례라 낙관적)"));
+    grid.appendChild(stat("자동 원문 대조 균형정확도", RS.pct(R.auto.balanced), "규칙을 만든 사람의 14건(낙관적). 현실적 16건에서는 " + RS.pct(R.extra.balanced)));
     box.appendChild(grid);
 
     var d1 = el("details", { class: "fold" }); d1.open = true;
@@ -265,7 +268,7 @@
       var tr = el("tr");
       tr.appendChild(el("td", { "data-label": "사례" }, c.id + " " + c.name));
       tr.appendChild(el("td", { "data-label": "실제" }, c.truth === "wrong" ? "오답" : "정답"));
-      tr.appendChild(el("td", { "data-label": "자동 대조" }, c.auto.needs_review ? "검토 필요" : "통과"));
+      tr.appendChild(el("td", { "data-label": "자동 대조" }, c.auto.needs_review ? "검토 필요" : (c.auto.inconclusive ? "판단 불가" : "통과")));
       tr.appendChild(el("td", { "data-label": "AI 재검토" }, (c.llm.needs_review ? "검토 필요" : "통과") + " (확신도 " + c.llm.confidence + ")"));
       var llmRight = (c.truth === "wrong") === c.llm.needs_review;
       tr.appendChild(el("td", { "data-label": "맞음?" }, llmRight ? "맞음" : "틀림"));
@@ -281,7 +284,7 @@
     d2.appendChild(ul);
     box.appendChild(d2);
 
-    var d3 = el("details", { class: "fold" });
+    var d3 = el("details", { class: "fold" }); d3.open = true;
     d3.appendChild(el("summary", null, "자동 원문 대조: 별도 사례 16건(현실적 난이도)"));
     d3.appendChild(el("p", { class: "help" }, R.extra.text));
     box.appendChild(d3);
@@ -305,6 +308,12 @@
     $("after-auto").hidden = !r.ok;
     if (!r.ok) { box.appendChild(el("p", { class: "problems" }, r.error)); return; }
     var sg = SC.autoSignal(r);
+    if (sg.inconclusive) {
+      lastAuto = null; $("after-auto").hidden = true;
+      box.appendChild(el("p", { class: "banner wait" }, "판단 불가: 원문에 대조할 숫자·ID·기호·항목이 거의 없어 자동 대조가 볼 것이 없습니다. '검토 불필요'가 아니라 아직 아무것도 확인하지 못했다는 뜻입니다. 아래 재검토 프롬프트로 AI에게 재검토를 시키세요."));
+      box.appendChild(el("p", { class: "help" }, r.limits));
+      return;
+    }
     box.appendChild(el("p", { class: "lead" }, "원문 숫자 " + r.stats.sourceNumbers + "개 중 " + r.stats.preservedNumbers + "개가 결과에 그대로 있습니다. 자동 신호: " + (sg.needs_review ? "검토 필요(" + (sg.reason_type === "specific" ? "구체적 오류 지적" : "검산 부족") + ")" : "검토 불필요") + "."));
     if (!r.findings.length) box.appendChild(el("p", { class: "notes-ok" }, "글자·숫자 수준에서는 불일치를 찾지 못했습니다. 의미와 계산은 아직 확인되지 않았습니다."));
     var ul = el("ul", { class: "notes" });
@@ -364,7 +373,8 @@
       var q = new URLSearchParams(location.search).get("lines");
       if (!q) return false;
       var p = RS.parseLines(q);
-      if (!p.rows.length) return false;
+      if (!p.rows.length) { $("clear-msg").textContent = "주소의 lines 값을 읽지 못했습니다(예: ?lines=예,검산 부족,오답;아니오,정답)."; return false; }
+      if (p.problems.length) $("clear-msg").textContent = "주소의 lines 중 " + p.problems.length + "줄은 읽지 못해 건너뛰었습니다.";
       rows = p.rows.map(function (r, i) { r.memo = "주소에서 불러옴 " + (i + 1); return r; });
       return true;
     } catch (e) { return false; }
@@ -375,8 +385,9 @@
     var base = (window.REVIEW_SIGNAL_API_BASE || "").trim().replace(/\/$/, "");
     var st = $("keys-status"), form = $("keys-form"), msg = $("keys-msg");
     var live = /^https:\/\/[^/]+/.test(base);
-    st.textContent = live ? "서버가 연결돼 있습니다." : "서버 연결 전입니다. 이 칸은 아직 이메일을 받지 않고 어디로도 보내지 않습니다(기능은 만들어 시험까지 마쳤고 서버 주소만 비어 있습니다).";
+    st.textContent = live ? "서버가 연결돼 있습니다." : "준비 중입니다. 이메일 입력 칸은 서버가 연결돼야 나타납니다. 지금은 이메일을 받지도 보내지도 않습니다.";
     st.className = "banner " + (live ? "ok" : "wait");
+    form.hidden = !live;
     ["keys-email", "keys-consent", "keys-submit"].forEach(function (id) { $(id).disabled = !live; });
     form.addEventListener("submit", function (ev) {
       ev.preventDefault();
@@ -419,7 +430,7 @@
       var sg = SC.autoSignal(lastAuto);
       rows = rows.filter(function (r) { return !isBlank(r); }).concat([{ memo: "자동 원문 대조", requested: sg.needs_review ? "yes" : "no", reason: sg.needs_review ? sg.reason_type : "", actual: "", confidence: null, reviewer: "auto" }]);
       update(true);
-      showTab("record");
+      showTab("record", "panel");
     });
     $("btn-addjson").addEventListener("click", function () {
       var p = RS.parseAiJson($("ai-json").value, $("reviewer-new").value);
@@ -438,7 +449,18 @@
       update(true);
     });
     $("btn-add").addEventListener("click", function () { rows.push(blankRow()); update(true); });
-    $("btn-clear").addEventListener("click", function () { rows = [blankRow(), blankRow(), blankRow()]; $("paste-problems").textContent = ""; $("json-problems").textContent = ""; update(true); });
+    var clearArmed = null;
+    $("btn-clear").addEventListener("click", function () {
+      var btn = $("btn-clear");
+      if (rows.some(function (r) { return !isBlank(r); }) && !clearArmed) {
+        btn.textContent = "정말 모두 지울까요? 한 번 더 누르세요";
+        clearArmed = setTimeout(function () { clearArmed = null; btn.textContent = "모두 지우기"; }, 4000);
+        return;
+      }
+      if (clearArmed) { clearTimeout(clearArmed); clearArmed = null; }
+      btn.textContent = "모두 지우기";
+      rows = [blankRow(), blankRow(), blankRow()]; $("paste-problems").textContent = ""; $("json-problems").textContent = ""; update(true);
+    });
     $("btn-paste").addEventListener("click", function () {
       var p = RS.parseLines($("paste-text").value);
       var ul = $("paste-problems");

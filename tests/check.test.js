@@ -103,3 +103,20 @@ test("검출률 요약(보고용): 심은 오류 건수와 정상 사례 오탐 
   assert.equal(found, planted);
   assert.equal(falseHigh, 0);
 });
+
+test("숫자가 비슷해 보여도 값이 다르면 보존으로 치지 않는다(합계 100 → 1000)", () => {
+  const r = SC.check("합계 100", "합계 1000");
+  assert.ok(r.findings.some(f => f.type === "숫자 누락 또는 변경" && f.severity === "high"));
+  assert.equal(SC.autoSignal(r).needs_review, true);
+  assert.equal(SC.check("연락처 010-0000-0000", "연락처 01000000000").findings.filter(f => f.severity !== "low").length, 0, "하이픈만 빠진 전화번호는 서식 차이");
+  assert.equal(SC.check("값 2026-10-23", "값 2026년 10월 23일").findings.length, 0);
+});
+
+test("대조할 숫자·ID·기호·항목이 없으면 '검토 불필요'가 아니라 판단 불가", () => {
+  const r = SC.check("고객에게 정중하게 사과하는 메일을 쓴다.", "죄송합니다. 확인 후 안내드리겠습니다.");
+  const s = SC.autoSignal(r);
+  assert.equal(s.inconclusive, true);
+  assert.equal(s.needs_review, null);
+  assert.equal(r.stats.checkable, 0);
+  assert.equal(SC.autoSignal(SC.check("값 3.14", "값 3.14")).inconclusive, undefined);
+});

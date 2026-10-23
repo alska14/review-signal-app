@@ -36,6 +36,7 @@
   function parseLines(text) {
     var rows = [], problems = [];
     var lines = String(text == null ? "" : text).split(/\r?\n|;/);
+    if (lines.length > 5000) { problems.push({ line: 5001, text: "", why: "5,000줄까지만 읽습니다. 나머지 " + (lines.length - 5000) + "줄은 건너뜁니다." }); lines.length = 5000; }
     for (var i = 0; i < lines.length; i++) {
       var raw = lines[i].trim();
       if (!raw) continue;
@@ -248,7 +249,7 @@
     }
     if (s.fn > 0) msgs.push({ level: "warn", text: "재검토가 '검토 불필요'로 표시했는데 실제로는 틀린 결과가 " + s.fn + "건입니다. 표시만 믿고 넘어갔다면 놓쳤을 오답입니다." });
     if (s.lowConfDenials > 0) msgs.push({ level: "warn", text: "정답인데 확신도 " + LOW_CONF + " 이하로 검토를 요청한 경우가 " + s.lowConfDenials + "건입니다. 논문 4.2절에도 올바른 답을 낮은 확신도로 의심한 사례가 있었습니다(이 표시 기준은 앱이 정한 것). 이런 재검토의 수정안은 그대로 따르지 마세요." });
-    if (s.brier !== null) msgs.push({ level: "info", text: "Brier 점수 " + s.brier.toFixed(3) + " (확신도를 적은 " + s.brierN + "건 기준, 낮을수록 좋음). 논문 모델은 0.005~0.739였고, 정답률의 영향도 받으므로 오류 구별 능력과 같은 뜻으로 읽지 않습니다(논문 3.4절)." });
+    if (s.brier !== null) msgs.push({ level: "info", text: "Brier 점수 " + s.brier.toFixed(3) + " (확신도를 적은 " + s.brierN + "건 기준, 낮을수록 좋음). 논문 모델은 0~0.739였고, 정답률의 영향도 받으므로 오류 구별 능력과 같은 뜻으로 읽지 않습니다(논문 3.4절)." });
     var sp = s.reasons.specific, sh = s.reasons.shortage;
     if (sp.n + sh.n > 0) {
       msgs.push({ level: "info", text: "검토 요청 근거별로 보면 '구체적 오류 지적' " + sp.n + "건 중 실제 오답 " + sp.wrong + "건, '검산 부족' " + sh.n + "건 중 실제 오답 " + sh.wrong + "건입니다. 논문은 두 근거를 구분해서 읽었습니다(근거 유형 칸은 앱이 추가한 것)." });

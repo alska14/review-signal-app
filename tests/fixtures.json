@@ -102,6 +102,7 @@
     "source": "A팀 12명, B팀 30명",
     "output": "A팀 30명, B팀 12명",
     "planted": [],
-    "knownMiss": true
+    "knownMiss": true,
+    "truth": "wrong"
   }
 ]

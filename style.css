@@ -145,3 +145,24 @@ input:disabled, button:disabled { opacity: .55; }
   .actions button.primary { width: 100%; }
   .tabs { margin: 0 -16px; }
 }
+
+/* v3.1 */
+body:not([data-tab="check"]) .one-line, body:not([data-tab="check"]) #long-def, body:not([data-tab="check"]) .paper-title { display: none; }
+details.fold.slim { border: 0; background: transparent; padding: 0; margin: 0 0 8px; }
+details.fold.slim > summary { padding: 4px 0; min-height: 32px; font-weight: 500; color: var(--muted); font-size: .9rem; }
+:root { --ctl: #8a8f99; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ctl: #7b8396; } }
+input, select, textarea, button:not(.quiet):not(.primary):not([role="tab"]) { border-color: var(--ctl); }
+h2:focus { outline: none; }
+.tabs { scroll-padding: 0 16px; }
+
+@media (max-width: 640px) {
+  h1 { font-size: 1.4rem; margin: 2px 0 4px; }
+  .top { padding-top: 10px; }
+  .one-line { font-size: .92rem; line-height: 1.5; }
+  main section { margin-top: 12px; }
+  h2 { font-size: 1.15rem; margin-bottom: 4px; }
+  .lead { margin-bottom: 6px; }
+  textarea { min-height: 72px; }
+  label { margin-top: 8px; }
+}
