@@ -256,6 +256,18 @@
     grid.appendChild(stat("자동 원문 대조 균형정확도", RS.pct(R.auto.balanced), "규칙을 만든 사람의 14건(낙관적). 현실적 16건에서는 " + RS.pct(R.extra.balanced)));
     box.appendChild(grid);
 
+    if (R.peer) {
+      var dp = el("details", { class: "fold" }); dp.open = true;
+      dp.appendChild(el("summary", null, "처음 보는 사람의 사용 후기와 고친 것"));
+      dp.appendChild(el("p", { class: "help" }, "앱 작성자가 주소만 알려 주고 받은 답을 이름 없이 그대로 옮겼습니다(문장은 고치지 않음)."));
+      dp.appendChild(el("blockquote", null, R.peer.quote));
+      dp.appendChild(el("blockquote", null, R.peer.more));
+      dp.appendChild(el("p", { class: "help" }, "이 후기를 받고 고친 것:"));
+      var pul = el("ul");
+      R.peer.fixed.forEach(function (f) { pul.appendChild(el("li", null, f)); });
+      dp.appendChild(pul);
+      box.appendChild(dp);
+    }
     var d1 = el("details", { class: "fold" }); d1.open = true;
     d1.appendChild(el("summary", null, "독립 AI 재검토 14건 상세"));
     d1.appendChild(el("p", { class: "help" }, R.reviewer + ". 사례와 정답 라벨은 앱 작성자가 만든 가상 데이터입니다."));
@@ -408,7 +420,7 @@
   function init() {
     rows = [blankRow(), blankRow(), blankRow()];
     initTabs();
-    $("btn-sample").addEventListener("click", function () { $("req-text").value = SAMPLE.req; $("res-text").value = SAMPLE.res; });
+    $("btn-sample").addEventListener("click", function () { $("req-text").value = SAMPLE.req; $("res-text").value = SAMPLE.res; runAutoCheck(); var o = $("autocheck-out"); if (o && o.scrollIntoView) o.scrollIntoView({ block: "nearest" }); });
     $("btn-autocheck").addEventListener("click", runAutoCheck);
     $("btn-prompt").addEventListener("click", function () {
       $("prompt-out").value = RS.buildPrompt($("req-text").value, $("res-text").value);
