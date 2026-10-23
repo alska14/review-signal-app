@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>검토 신호 점검기</title>
+<meta name="description" content="논문 「언어모델의 정답률과 추가 검토 요청의 일치와 불일치」의 계산법으로, AI의 '검토 필요' 표시가 내 업무에서 얼마나 맞았는지 재 보는 앱">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <p class="paper-title">논문 「언어모델의 정답률과 추가 검토 요청의 일치와 불일치」</p>
+    <h1>검토 신호 점검기</h1>
+    <p class="one-line" id="one-line">이 앱은 AI 답변을 업무에 쓰는 사람이, AI가 붙인 '다시 검토 필요' 표시가 실제 오답을 얼마나 가려냈는지 내 기록 몇 줄로 계산해 보도록 돕습니다.</p>
+    <ol class="steps" aria-label="할 일 세 가지">
+      <li><a href="#s1"><b>1</b> 내 기록 입력</a></li>
+      <li><a href="#s2"><b>2</b> 점수와 논문 모델 비교</a></li>
+      <li><a href="#s3"><b>3</b> 논문 사례로 연습</a></li>
+    </ol>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+
+<section id="s1" aria-labelledby="h1">
+  <h2 id="h1"><span class="n">1</span> 내 기록 입력</h2>
+  <p class="help">AI에게 받은 답변 하나가 한 줄입니다. ① AI가 '다시 검토 필요'라고 했는지, ② 그 근거가 무엇이었는지, ③ 내가 직접 확인한 실제 결과(정답/오답)를 고르세요. 처음이면 <b>예시로 채우기</b>를 눌러 보세요. 예시는 가상의 숫자입니다.</p>
+  <div class="btns">
+    <button type="button" id="btn-example">예시로 채우기</button>
+    <button type="button" id="btn-add" class="ghost">줄 추가</button>
+    <button type="button" id="btn-clear" class="ghost">모두 지우기</button>
+  </div>
+  <div class="tablewrap">
+    <table id="rows" aria-describedby="h1">
+      <thead><tr><th>#</th><th>메모(선택)</th><th>AI가 검토 필요라고 했나요?</th><th>그 근거</th><th>실제 결과(내가 확인)</th><th><span class="sr">삭제</span></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <details class="paste">
+    <summary>줄 단위로 붙여넣기(선택)</summary>
+    <p class="help">한 줄에 <code>요청, 근거, 실제결과</code> 순서입니다. 예: <code>예, 구체적 오류 지적, 오답</code> 또는 <code>아니오, 정답</code>(근거 칸 생략 가능). 잘못된 줄은 건너뛰고 이유를 알려 드립니다.</p>
+    <textarea id="paste-text" rows="5" placeholder="예, 검산 부족, 정답&#10;아니오, 정답&#10;예, 구체적 오류 지적, 오답"></textarea>
+    <button type="button" id="btn-paste">붙여넣은 줄 추가</button>
+    <ul id="paste-problems" class="problems" aria-live="polite"></ul>
+  </details>
+</section>
+
+<section id="s2" aria-labelledby="h2">
+  <h2 id="h2"><span class="n">2</span> 점수와 논문 모델 비교</h2>
+  <div id="result" aria-live="polite"></div>
+  <div id="compare"></div>
+</section>
+
+<section id="s3" aria-labelledby="h3">
+  <h2 id="h3"><span class="n">3</span> 논문 사례로 연습: AI의 수정안을 따라야 할까?</h2>
+  <p class="help">논문에 나온 실제 사례 4개입니다. AI가 처음 답을 냈고, 다시 검토하면서 다른 답을 내놓았습니다. 어느 쪽을 따를지 고르세요. 고른 뒤에 논문이 확인한 정답이 나옵니다.</p>
+  <div id="cases"></div>
+  <p id="case-score" class="score" aria-live="polite"></p>
+</section>
+
+</main>
+
+<footer class="wrap foot">
+  <h2>이 앱이 쓰는 논문의 내용</h2>
+  <ul>
+    <li><b>계산식</b>: 논문 3.4절의 '검토 요청의 오답 구별 균형정확도' = (오답 검토율 + 1 − 정답 검토율) / 2. 정답이나 오답이 없으면 계산하지 않습니다.</li>
+    <li><b>비교 숫자</b>: 논문 표 1·2의 OpenAI 7종과 Claude 4종 결과(공통 12문항, 모델당 한 번 실행)를 그대로 옮겼습니다.</li>
+    <li><b>한계</b>: 합성 문제 12개의 탐색 연구입니다. 정답률과 검토 요청의 일반적 관계는 확정하지 못했고, 완료된 모델도 11종뿐입니다. 이 앱의 해석 문구는 참고용입니다.</li>
+    <li><b>작성</b>: 논문은 연구자(GitHub alska14)의 경험과 주제 선택을 바탕으로 AI가 실험 실행·분석·집필을 보조했습니다. 이 앱도 AI와 함께 만들었습니다.</li>
+    <li><b>개인정보</b>: 입력한 기록은 이 브라우저 안에서만 계산하고 서버로 보내거나 저장하지 않습니다. 쿠키와 외부 요청이 없습니다.</li>
+  </ul>
+</footer>
+
+<script src="data_models.js"></script>
+<script src="data_cases.js"></script>
+<script src="logic.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
