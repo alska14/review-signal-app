@@ -18,6 +18,7 @@ const win = {};
 new Function("window", readFileSync(join(here, "..", "data_models.js"), "utf8"))(win);
 const MODELS = win.PAPER_MODELS;
 
+const SUPPORTED_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 const NEXT_STEPS = [
   "1) autoCheck.findings 를 사용자에게 그대로 보여 준다(심각도 high 부터).",
   "2) reviewPrompt 를 결과를 만든 대화와 분리된 새 컨텍스트(서브에이전트나 다른 모델)에서 실행해 JSON 만 받는다. 결과를 고치게 하거나 정답을 알려 주지 않는다.",
@@ -117,12 +118,12 @@ function handle(msg) {
   const ok = (result) => ({ jsonrpc: "2.0", id, result });
   const err = (code, message) => ({ jsonrpc: "2.0", id, error: { code, message } });
   if (method === "initialize") {
-    return ok({ protocolVersion: (params && params.protocolVersion) || "2024-11-05", capabilities: { tools: {}, prompts: {} }, serverInfo: { name: "review-signal", version: "2.0.0" } });
+    // 버전 협상: 클라이언트가 보낸 버전이 우리가 아는 것이면 그대로, 아니면 우리가 지원하는 가장 새 버전을 돌려준다.
+    const asked = params && params.protocolVersion;
+    const version = SUPPORTED_VERSIONS.includes(asked) ? asked : SUPPORTED_VERSIONS[0];
+    return ok({ protocolVersion: version, capabilities: { tools: {}, prompts: {} }, serverInfo: { name: "review-signal", version: "2.1.0" } });
   }
-  // 2026-07-28 이후 프로토콜은 initialize 대신 server/discover 를 쓴다(out/llm_integration_facts.md 의 자료 기준). 이 응답 모양은 실제 클라이언트로 시험하지 못했다.
-  if (method === "server/discover") {
-    return ok({ supportedVersions: ["2026-07-28", "2025-11-25", "2024-11-05"], protocolVersion: "2026-07-28", capabilities: { tools: {}, prompts: {} }, serverInfo: { name: "review-signal", version: "2.0.0" } });
-  }
+  // 2026-07-28 프로토콜의 server/discover 는 응답 형식을 확인하지 못해 구현하지 않는다(오류를 돌려주면 클라이언트가 initialize 방식으로 되돌아간다).
   if (method === "ping") return ok({});
   if (method === "tools/list") return ok({ tools: TOOLS });
   if (method === "prompts/list") return ok({ prompts: PROMPTS });
@@ -153,6 +154,8 @@ const ROUTES = { "/api/verify": verifyTool, "/api/check": checkTool, "/api/promp
 function startHttp(port) {
   const server = http.createServer((req, res) => {
     const send = (code, obj) => { const body = JSON.stringify(obj); res.writeHead(code, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }); res.end(body); };
+    const host = String(req.headers.host || "");
+    if (!/^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i.test(host)) return send(403, { error: "이 서버는 이 컴퓨터에서만 쓸 수 있습니다." });
     const url = (req.url || "").split("?")[0];
     if (req.method === "GET" && url === "/health") return send(200, { ok: true, name: "review-signal", endpoints: Object.keys(ROUTES).concat("/api/models") });
     if (req.method === "GET" && url === "/api/models") return send(200, { models: modelsTool() });
@@ -168,18 +171,26 @@ function startHttp(port) {
       try { send(200, fn(args && typeof args === "object" ? args : {})); } catch (e) { send(500, { error: String(e && e.message) }); }
     });
   });
+  server.on("error", (e) => { console.error(e && e.code === "EADDRINUSE" ? "포트 " + port + " 을(를) 이미 쓰고 있습니다. --http 8788 처럼 다른 번호를 쓰세요." : "서버를 시작하지 못했습니다: " + (e && e.message)); process.exitCode = 1; });
   server.listen(port, "127.0.0.1", () => { console.error("review-signal API: http://127.0.0.1:" + server.address().port + " (이 컴퓨터에서만 열림)"); });
   return server;
 }
 
 function main() {
   const i = process.argv.indexOf("--http");
-  if (i >= 0) { startHttp(Number(process.argv[i + 1]) || 8787); return; }
+  if (i >= 0) {
+    const raw = process.argv[i + 1];
+    const port = raw === undefined ? 8787 : Number(raw);
+    if (!Number.isInteger(port) || port < 0 || port > 65535) { console.error("포트는 0~65535 사이 숫자여야 합니다: " + raw); process.exitCode = 1; return; }
+    startHttp(port); return;
+  }
   const rl = readline.createInterface({ input: process.stdin });
   rl.on("line", (line) => {
     if (!line.trim()) return;
     let msg;
+    if (line.length > 2_000_000) { process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "요청이 너무 큽니다" } }) + "\n"); return; }
     try { msg = JSON.parse(line); } catch { process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "JSON 해석 실패" } }) + "\n"); return; }
+    if (Array.isArray(msg)) { process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "배치 요청은 지원하지 않습니다" } }) + "\n"); return; }
     const res = handle(msg);
     if (res) process.stdout.write(JSON.stringify(res) + "\n");
   });

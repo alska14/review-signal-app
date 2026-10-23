@@ -15,7 +15,7 @@ test("심어 둔 오류는 모두 찾는다", () => {
     for (const p of c.planted) { planted++; if (t.includes(p)) found++; else assert.fail(c.name + ": 못 찾음 " + p + " / 나온 것: " + t.join(", ")); }
   }
   assert.equal(found, planted);
-  assert.ok(planted >= 8);
+  assert.ok(planted >= 8, "심어 둔 오류는 같은 작성자가 규칙에 맞춰 만든 것이라 검증이 아니라 회귀 시험이다");
 });
 
 test("정상 사례에는 심각한 지적(high)이 없다", () => {
@@ -52,15 +52,43 @@ test("아주 긴 입력과 특수문자에도 빠르게 끝난다", () => {
   assert.equal(weird.findings.length, 0);
 });
 
-test("자동 신호: 심각한 지적이 있으면 검토 필요, 없으면 불필요(최종 확인은 사람이)", () => {
-  const bad = FIX.find(x => x.name.startsWith("소수"));
-  const s1 = SC.autoSignal(SC.check(bad.source, bad.output));
+test("자동 신호: 심각한 지적이 있으면 검토 필요, 없으면 불필요, 확신도는 지어내지 않는다", () => {
+  const s1 = SC.autoSignal(SC.check("허용 오차 ±0.5 mm", "허용 오차 0.5 mm"));
   assert.equal(s1.needs_review, true);
   assert.equal(s1.reason_type, "specific");
+  assert.equal(s1.confidence, null);
+  const fmt = SC.check("평점 4.50", "평점 4.5");
+  assert.equal(fmt.findings[0].severity, "low", "값이 같은 표기 변환은 low");
+  assert.equal(SC.autoSignal(fmt).needs_review, false);
+  const real = SC.check("값 0.96852454", "값 0.9685");
+  assert.equal(real.findings[0].type, "소수 자릿수 손실");
+  assert.equal(real.findings[0].severity, "high");
   const ok = FIX.find(x => x.name === "정상: 원문 그대로 옮김");
   const s2 = SC.autoSignal(SC.check(ok.source, ok.output));
   assert.equal(s2.needs_review, false);
   assert.equal(s2.reason_type, "none");
+  assert.equal(s2.confidence, null);
+});
+
+test("입력 길이 상한과 성능: 숫자·ID가 많은 25만 자도 1초 안에 끝난다", () => {
+  const big = "A-1. ".repeat(50000);
+  const t0 = Date.now();
+  assert.equal(SC.check(big, big).ok, true);
+  assert.ok(Date.now() - t0 < 1000, "느림: " + (Date.now() - t0));
+  const huge = SC.check("x".repeat(300001), "y");
+  assert.equal(huge.ok, false);
+  assert.match(huge.error, /너무 깁니다/);
+});
+
+test("별도 사례 16개(임시 테스트용 가상 데이터, 현실적 난이도)의 실제 성적을 기록한다: 지금 수치가 바뀌면 보고서도 고쳐야 한다", () => {
+  const EXTRA = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures_extra.json"), "utf8"));
+  let tp = 0, fn = 0, fp = 0, tn = 0;
+  for (const c of EXTRA) {
+    const flag = SC.autoSignal(SC.check(c.source, c.output)).needs_review;
+    if (c.truth === "wrong") flag ? tp++ : fn++; else flag ? fp++ : tn++;
+  }
+  console.log("별도 사례 16개: 오류 10건 중 " + tp + "건 지적, 정상 6건 중 " + fp + "건 오탐");
+  assert.deepEqual([tp, fn, fp, tn], [4, 6, 1, 5]);
 });
 
 test("검출률 요약(보고용): 심은 오류 건수와 정상 사례 오탐 건수", () => {

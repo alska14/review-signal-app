@@ -148,3 +148,12 @@ test("해석 문구: 오답이 적으면 일반화 경고, 점수 구간은 앱 
   assert.match(text, /논문의 기준이 아닙니다/);
   assert.doesNotMatch(text, /헛 경보/);
 });
+
+test("대표 점수에는 자동 대조(앱) 기록이 들어가지 않는다", () => {
+  const rows = [R("yes", "wrong"), R("no", "correct"), R("yes", "correct", { reviewer: "auto" }), R("no", "wrong", { reviewer: "auto" })];
+  assert.equal(RS.headline(rows).length, 2);
+  const j = RS.toJSON(rows, MODELS);
+  assert.equal(j.used, 2);
+  assert.equal(j.byReviewer.auto.used, 2);
+  assert.equal(j.balancedAccuracy, 1);
+});

@@ -25,14 +25,14 @@
   function numbers(text, skipIds) {
     var out = [], m, s = String(text == null ? "" : text);
     var ranges = skipIds ? idRanges(s) : [];
+    var ri = 0;
     NUM_RE.lastIndex = 0;
     while ((m = NUM_RE.exec(s)) !== null) {
       var raw = m[0], index = m.index;
       /* 부호처럼 보여도 앞이 글자·숫자·#이면 하이픈(ID, 날짜)이다 */
       if (/^[-+−]/.test(raw) && index > 0 && /[A-Za-z0-9#_가-힣]/.test(s.charAt(index - 1))) { raw = raw.slice(1); index += 1; }
-      var inId = false;
-      for (var r = 0; r < ranges.length; r++) if (index >= ranges[r][0] && index < ranges[r][1]) { inId = true; break; }
-      if (inId) continue;
+      while (ri < ranges.length && ranges[ri][1] <= index) ri++; /* 번호는 오름차순이라 한 번만 훑는다 */
+      if (ri < ranges.length && index >= ranges[ri][0] && index < ranges[ri][1]) continue;
       var norm = normNum(raw);
       if (!/\d/.test(norm)) continue;
       out.push({ raw: raw, norm: norm, index: index, pct: /%$/.test(raw) });
@@ -92,6 +92,10 @@
     function add(type, severity, message, srcEvidence, outEvidence) {
       findings.push({ type: type, severity: severity, message: message, source: srcEvidence || "", output: outEvidence || "" });
     }
+    var MAX = 300000;
+    if (src.length > MAX || out.length > MAX) {
+      return { ok: false, error: "입력이 너무 깁니다(각각 " + MAX.toLocaleString("en-US") + "자까지). 나눠서 넣어 주세요.", findings: [], stats: { sourceNumbers: 0, preservedNumbers: 0, coverage: null } };
+    }
     if (!src.trim() || !out.trim()) {
       return { ok: false, error: "원문과 AI 결과를 모두 넣어야 대조할 수 있습니다.", findings: [], stats: { sourceNumbers: 0, preservedNumbers: 0, coverage: null } };
     }
@@ -103,10 +107,13 @@
     var sevNum = opt.strictNumbers ? "high" : "high";
     var outNormList = on.map(function (n) { return n.norm; });
 
+    var outDigits = out.replace(/[^0-9]/g, "");
     sn.forEach(function (n) {
       var key = n.norm;
       var avail = (outCount[key] || 0) - (used[key] || 0);
       if (avail > 0) { used[key] = (used[key] || 0) + 1; preserved++; return; }
+      /* 전화번호처럼 하이픈·공백만 달라진 경우: 숫자열이 결과의 숫자 흐름 안에 그대로 있으면 서식 차이로 본다 */
+      if (!/[.]/.test(key) && key.replace(/\D/g, "").length >= 3 && outDigits.indexOf(key.replace(/\D/g, "")) >= 0 && n.raw.replace(/\D/g, "") === key.replace(/\D/g, "")) { preserved++; return; }
       /* 정확히 같은 값이 없을 때: 자릿수 손실/반올림/완전 누락 구분 */
       var trunc = null, rounded = null;
       for (var i = 0; i < on.length; i++) {
@@ -115,9 +122,16 @@
       }
       if (trunc || rounded) {
         var o = trunc || rounded;
-        add(trunc ? "소수 자릿수 손실" : "반올림·자릿수 변경", "high",
-          "원문의 " + n.raw + " 이(가) 결과에서 " + o.raw + " 로 바뀌었습니다(소수 자릿수 " + decimals(key) + "→" + decimals(o.norm) + "). 원문 값을 그대로 옮겨야 하는 자료라면 오류입니다.",
-          around(src, n.index, n.raw.length), around(out, o.index, o.raw.length));
+        var same = Number(key) === Number(o.norm);
+        if (same) {
+          add("표기 변환(값은 같음)", "low",
+            "원문의 " + n.raw + " 이(가) 결과에서 " + o.raw + " 로 적혔습니다(값은 같고 끝자리 표기만 다름). 원문을 글자 그대로 옮겨야 하는 자료(코드, 식별자, 정밀도 표기)라면 확인하세요.",
+            around(src, n.index, n.raw.length), around(out, o.index, o.raw.length));
+        } else {
+          add(trunc ? "소수 자릿수 손실" : "반올림·자릿수 변경", "high",
+            "원문의 " + n.raw + " 이(가) 결과에서 " + o.raw + " 로 바뀌었습니다(소수 자릿수 " + decimals(key) + "→" + decimals(o.norm) + ", 값이 달라짐).",
+            around(src, n.index, n.raw.length), around(out, o.index, o.raw.length));
+        }
         reportedLoss++; lossOut[o.index] = true;
       } else {
         add("숫자 누락 또는 변경", sevNum,
@@ -177,7 +191,7 @@
     /* 완료 주장 표현 */
     var claim = /(모두|전부|빠짐없이|남김없이|완료|끝냈|통과|100\s*%)/.test(out);
     var seriousCount = findings.filter(function (f) { return f.severity === "high"; }).length;
-    if (claim && seriousCount > 0) add("완료 주장과 불일치", "high", "결과에 '완료·모두·빠짐없이' 같은 표현이 있는데, 위에서 심각한 불일치가 " + seriousCount + "건 나왔습니다. 논문 서론의 사례(완료 보고 대 재검토)와 같은 모양입니다.", "", out.match(/.{0,12}(모두|전부|빠짐없이|남김없이|완료|끝냈|통과|100\s*%).{0,12}/)[0]);
+    if (claim && seriousCount > 0) add("완료 주장과 불일치", "high", "결과에 '완료·모두·빠짐없이' 같은 표현이 있는데, 위에서 심각한 불일치가 " + seriousCount + "건 나왔습니다. 완료 보고와 실제 확인 결과가 어긋날 수 있다는 신호입니다.", "", out.match(/.{0,12}(모두|전부|빠짐없이|남김없이|완료|끝냈|통과|100\s*%).{0,12}/)[0]);
 
     var order = { high: 0, mid: 1, low: 2 };
     findings.sort(function (a, b) { return order[a.severity] - order[b.severity]; });
@@ -190,13 +204,15 @@
     };
   }
 
-  /* 의심 건수로 재검토 신호의 초기값을 정한다. 사람이 최종 확인하기 전의 '자동 신호'일 뿐이다. */
+  /* 자동 신호: 지적 건수로 '검토 필요' 초기값만 정한다. 확신도는 지어내지 않는다(null).
+   * 사람이 확인하기 전의 신호이며 AI의 재검토가 아니다. */
   function autoSignal(result) {
-    if (!result || !result.ok) return { needs_review: true, reason_type: "shortage", confidence: 0 };
-    var high = result.stats.high || 0, all = result.findings.length;
-    if (high > 0) return { needs_review: true, reason_type: "specific", confidence: Math.max(5, 40 - 10 * high) };
-    if (all > 0) return { needs_review: true, reason_type: "shortage", confidence: 55 };
-    return { needs_review: false, reason_type: "none", confidence: 75 };
+    if (!result || !result.ok) return { needs_review: true, reason_type: "shortage", confidence: null };
+    var high = result.stats.high || 0;
+    var mid = result.findings.filter(function (f) { return f.severity === "mid"; }).length;
+    if (high > 0) return { needs_review: true, reason_type: "specific", confidence: null };
+    if (mid > 0) return { needs_review: true, reason_type: "shortage", confidence: null };
+    return { needs_review: false, reason_type: "none", confidence: null };
   }
 
   return { check: check, autoSignal: autoSignal, numbers: numbers, ids: ids };

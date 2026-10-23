@@ -185,6 +185,11 @@
     return s;
   }
 
+  /* 대표 점수에는 '자동 대조(앱)' 기록을 넣지 않는다. 앱의 규칙 신호는 AI 재검토가 아니라서 따로 본다. */
+  function headline(rows) {
+    return (Array.isArray(rows) ? rows : []).filter(function (r) { return !(r && r.reviewer === "auto"); });
+  }
+
   /* 검토자(같은 AI / 다른 AI / 사람)별로 따로 요약. 논문 비교는 '같은 AI' 기록에만 쓴다. */
   function byReviewer(rows) {
     var groups = { same: [], other: [], human: [], auto: [] };
@@ -254,11 +259,12 @@
 
   /* 기계가 읽는 결과(주소 연동·MCP·WebMCP·화면 JSON 블록이 같은 모양을 쓴다). */
   function toJSON(rows, models) {
-    var s = summarize(rows);
+    var s = summarize(headline(rows));
     var groups = byReviewer(rows);
     var same = groups.same;
     var cmp = compare(same.balanced, models || []);
     return {
+      note: "대표 점수에는 '자동 대조(앱)' 기록이 들어가지 않습니다(byReviewer.auto 에서 따로 봄).",
       used: s.used, skipped: s.skipped,
       counts: { tp: s.tp, fn: s.fn, fp: s.fp, tn: s.tn },
       wrongN: s.wrongN, rightN: s.rightN,
@@ -278,7 +284,7 @@
   }
 
   return { REASON: REASON, REVIEWER: REVIEWER, LOW_CONF: LOW_CONF, isComplete: isComplete,
-           parseLines: parseLines, parseAiJson: parseAiJson, buildPrompt: buildPrompt,
+           parseLines: parseLines, parseAiJson: parseAiJson, headline: headline, buildPrompt: buildPrompt,
            summarize: summarize, byReviewer: byReviewer, balancedOf: balancedOf, compare: compare,
            interpret: interpret, pct: pct, wilson: wilson, range: range, toJSON: toJSON };
 });
